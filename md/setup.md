@@ -78,25 +78,104 @@ root@96125166473c:/rails-docker#
 exit
 ```
 
+### 途中から作業を再開する場合
+1.初めにDockerエンジンを手動で起動する(dockerアプリを開く)
+
+2.コンテナを起動させる(ExitedからRunningにする)
+```
+docker start <CONTAINER IDまたはNAME>
+```
+コンテナの停止(RunningからExitedにする)
+```
+docker stop <CONTAINER IDまたはNAME>
+```
+
+3.コンテナに入って作業する
+```
+docker-compose exec web bash
+```
+
 
 ## Railsのセットアップ
 以下のコマンドを実行してRailsのセットアップを行います。
 
+### railsのアプリに必要なものを一気にインストールする
 ```
 rails new . --force --database=postgresql --skip-bundle
 ```
+rails new .: これは新しいRailsアプリケーションを現在のディレクトリに作成するコマンドです。rails newは新しいアプリケーションを作成するためのコマンドであり、.は現在のディレクトリを指します。
+
+--force: このオプションは、既存のディレクトリに対してアプリケーションを強制的に作成する際に使用されます。すでに同じ名前のディレクトリが存在する場合でも、上書きして新しいアプリケーションを作成します。
+
+--database=postgresql: このオプションは、アプリケーションのデータベースとしてPostgreSQLを使用するよう指定します。
+
+--skip-bundle: このオプションは、アプリケーションの作成後にBundlerを実行しないように指定します。BundlerはRubyアプリケーションの依存関係を管理するツールで、通常はアプリケーション作成後にgemファイルに記載された依存ライブラリをインストールしますが、このオプションを使うことでそれをスキップできます。
+
+![Alt text](../images/rails-new.png)
+
+このコマンドを実行することで自動でGemfileが書き換えられる。rails newをすることでrailsが必要なgemが一覧で表示される。Gemfileが新しくなったらbundle installを実行する必要がある。
+![Alt text](../images/Gemfile-update.png)
+コンテナの中でサーバーを開いて確認してみよう
+```
+rails s -b 0.0.0.0
+```
+そうするとbundle installしてないとエラーがでる。
+bundle installしないとそもそもrailsが起動しない状態。
+```
+$ docker compose exec web bash
+root@96125166473c:/rails-docker# rails s -b 0.0.0.0
+Could not find gem 'sprockets-rails' in locally installed gems.
+Run `bundle install --gemfile /rails-docker/Gemfile` to install missing gems.
+```
+なのでbundle installする必要があるがすでにDockerfileにGemfileが新しくなった時だけbundle installが実行されるという記述がある。**なのでGemfileが新しくなったら新しいimageをビルドすると覚えておく**
+hostに戻る
 ```
 exit
 ```
-Gemfileが新しくなったので、再度ビルドを行います。
+Gemfileが新しくなったので、再度imageのビルドを行います。
 
-
+1.一度コンテナを削除します(イメージは削除しません)
 ```
 docker-compose down
 ```
+コンテナの停止: 起動中のコンテナを停止します。これにより、コンテナ内で実行されているプロセスが停止します。
+
+コンテナの削除: コンテナを停止した後、それらのコンテナを削除します。これにより、停止したコンテナが完全に削除されます。
+
+ネットワークやボリュームの削除: Docker Composeで作成されたネットワークやボリュームなども削除されます。
+
+2.docker-compose upだけではすでにimageがあると古いイメージが使われてしまうので以下のコマンドを使う。
+まずimage一覧を表示して古いイメージが残っているのを確認
 ```
-$ docker-compose up --build -d
+$ docker images
+REPOSITORY                 TAG       IMAGE ID       CREATED       SIZE
+rails-docker-compose-web   latest    e7feab3997ef   8 hours ago   1.15GB
 ```
+--buildオプションを指定することで、常にイメージを再ビルドして最新の状態でコンテナを起動します。指定しない場合、イメージが既に存在する場合は既存のイメージを使用します。
+```
+docker-compose up --build -d
+```
+コンテナが作成されupの状態であることを確認
+```
+$ docker-compose ps
+NAME                         IMAGE                      COMMAND             SERVICE             CREATED              STATUS              PORTS
+rails-docker-compose-web-1   rails-docker-compose-web   "irb"               web                 About a minute ago   Up About a minute   0.0.0.0:3000->3000/tcp
+
+```
+
+もう一度コンテナの中でサーバーを開いて確認してみよう
+```
+docker compose exec web bash
+rails s -b 0.0.0.0
+```
+![Alt text](../images/server.png)
+サーバー接続に成功。エラーはデータベースがないと言っているだけ。なので次はデータベースを準備する。
+
+## 3. DBのセットアップ
+
+
+
+
 
 ## docker-composeコマンド
 ![Alt text](images/docker-compose1.png)
