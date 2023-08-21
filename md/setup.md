@@ -83,6 +83,9 @@ exit
 
 2.コンテナを起動させる(ExitedからRunningにする)
 ```
+docker ps -a
+```
+```
 docker start <CONTAINER IDまたはNAME>
 ```
 コンテナの停止(RunningからExitedにする)
@@ -172,13 +175,93 @@ rails s -b 0.0.0.0
 サーバー接続に成功。エラーはデータベースがないと言っているだけ。なので次はデータベースを準備する。
 
 ## 3. DBのセットアップ
+database.yml(configフォルダ)とdocker-compose.ymlをまずは編集する
+database.yml(configフォルダ)の編集後
+```
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  host: db
+  user: postgres
+  port: 5432
+  password: <%= ENV.fetch("DATABASE_PASSWORD") %>
+  # host側ではなくコンテナ側に環境変数を作る必要がある。　　
+```
+docker-compose.yml
 
+```
+version: "3.9"
+
+volumes:
+  db-data:
+
+services:
+  web:
+    build: .
+    ports:
+      - '3000:3000'
+    volumes:
+      - '.:/rails-docker'
+    environment:
+      - 'DATABASE_PASSWORD=postgres'
+    tty: true
+    stdin_open: true
+    depends_on:
+      - db
+    links:
+      - db
+
+  db:
+    image: postgres:12
+    volumes:
+      - 'db-data:/var/lib/postgresql/data'
+    environment:
+      - 'POSTGRES_USER=postgres'
+      - 'POSTGRES_PASSWORD=postgres'
+```
+```
+<!-- これを追加しないとエラーになったupにならずExitになる -->
+ environment:
+      - 'POSTGRES_USER=postgres'
+      - 'POSTGRES_PASSWORD=postgres'
+```
+
+```
+docker-compose up -d
+```
+![Alt text](../images/db.png)
+
+```
+docker-compose exec web bash
+```
+```
+rails db:create
+```
+そうすると
+```
+$ docker-compose exec web bash
+root@2fc7deb96b6c:/rails-docker# rails db:create
+
+Created database 'rails_docker_development'
+Created database 'rails_docker_test'
+```
+
+```
+rails g scaffold product name:string price:integer vendor:string
+```
+
+```
+rails db:migrate
+```
+```
+rails s -b 0.0.0.0
+```
 
 
 
 
 ## docker-composeコマンド
-![Alt text](images/docker-compose1.png)
+![!\[Alt text\](images/docker-compose1.png)](../images/docker-compose1.png)
 ```
 docker-compose build
 ```
